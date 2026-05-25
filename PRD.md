@@ -116,11 +116,13 @@ changes to make the SCD output meaningful in the demo.
   - `.pbix` connected via ODBC to the `prod_marts` schema
   - Pages: Executive overview, Geography (Brazil map via geolocation), Marketplace (sellers), Customer (RFM segments)
   - Screenshots + ~30s screen-capture video embedded in README
+- **Bonus 3 — Public chatbot deploy**
+  - HF Spaces deployment of the chatbot (frontend + FastAPI backend in one Docker image)
+  - Single public URL the reviewer can hit without local setup
 
 ### V3 — Stretch goals
 
 - GitHub Actions running `dbt build` on PR against a `ci_*` schema
-- HF Spaces deployment of the chatbot (frontend + FastAPI backend in one Docker image)
 - Evaluation harness for the chatbot (NL question → expected answer → pass/fail JSON, target ≥80%)
 
 ---
