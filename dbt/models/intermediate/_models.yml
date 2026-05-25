@@ -1,0 +1,47 @@
+version: 2
+
+# Intermediate-layer tests focus on the grain only (uniqueness + not_null
+# on the key). Deeper business assertions live in the marts YAML where
+# the consumer-facing contract is defined.
+
+models:
+  - name: int_geolocation_centroid
+    description: "One row per Brazilian zip-code prefix with centroid (lat, lng) and representative city/state. Materialized as a table because the upstream aggregation touches ~1M rows and is consumed by multiple dims."
+    columns:
+      - name: zip_code_prefix
+        description: "5-digit Brazilian zip code prefix. Unique."
+        data_tests:
+          - unique
+          - not_null
+      - name: latitude
+        data_tests:
+          - not_null
+      - name: longitude
+        data_tests:
+          - not_null
+
+  - name: int_order_revenue
+    description: "One row per order with line-item totals (n_items, item price, freight, revenue). Feeds fct_orders."
+    columns:
+      - name: order_id
+        description: "Order primary key."
+        data_tests:
+          - unique
+          - not_null
+      - name: total_revenue
+        description: "Sum of (price + freight_value) across all items. The headline revenue metric for the order."
+        data_tests:
+          - not_null
+
+  - name: int_order_payments_pivoted
+    description: "One row per order with a payment summary (counts, totals, installments) and one pivoted SUM column per payment method, produced by the pivot_payment_methods macro."
+    columns:
+      - name: order_id
+        description: "Order primary key."
+        data_tests:
+          - unique
+          - not_null
+      - name: total_payment_value
+        description: "Sum of payment_value across all installments / methods for the order."
+        data_tests:
+          - not_null

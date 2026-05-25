@@ -1,0 +1,68 @@
+version: 2
+
+# Dimension contracts. The grain test (unique + not_null on the key) is
+# the non-negotiable assertion for every dimension. Additional value-level
+# tests live where business meaning is at stake (e.g. has_photos).
+
+models:
+  - name: dim_date
+    description: "Calendar dimension. One row per day from 2016-01-01 to 2019-12-31 inclusive, covering the Olist data window with buffer."
+    columns:
+      - name: date_key
+        description: "Date primary key (DATE)."
+        data_tests:
+          - unique
+          - not_null
+      - name: year
+        data_tests:
+          - not_null
+      - name: month_number
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+              quote: false
+      - name: day_of_week_number
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7]
+              quote: false
+
+  - name: dim_customer
+    description: "Customer dimension. Grain = customer_id (per-order surrogate). `customer_unique_id` is the person-level key used by mart_customer_rfm."
+    columns:
+      - name: customer_id
+        description: "Per-order customer key. Joins to fct_orders.customer_id."
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_unique_id
+        description: "Stable identifier for the underlying person across orders."
+        data_tests:
+          - not_null
+      - name: customer_state
+        data_tests:
+          - not_null
+
+  - name: dim_product
+    description: "Product dimension. Grain = product_id. Includes English category translation and derived package volume."
+    columns:
+      - name: product_id
+        data_tests:
+          - unique
+          - not_null
+      - name: category_en
+        description: "English category name. Falls back to 'unknown' when the Portuguese name is not in the translation table."
+        data_tests:
+          - not_null
+
+  - name: dim_seller
+    description: "Seller dimension. Grain = seller_id."
+    columns:
+      - name: seller_id
+        data_tests:
+          - unique
+          - not_null
+      - name: seller_state
+        data_tests:
+          - not_null

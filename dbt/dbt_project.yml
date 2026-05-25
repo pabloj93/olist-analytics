@@ -34,6 +34,8 @@ models:
       +materialized: table
 
 # Snapshot defaults (SCD type 2 lives in snapshots/).
+# `target.schema` resolves at runtime — dev runs land in `olist_dev_snapshots`,
+# prod runs in `olist_prod_snapshots`. Both accumulate history independently.
 snapshots:
   olist_analytics:
-    +target_schema: "{{ env_var('DBT_SCHEMA_PROD', 'olist_prod') }}_snapshots"
+    +target_schema: "{{ target.schema }}_snapshots"

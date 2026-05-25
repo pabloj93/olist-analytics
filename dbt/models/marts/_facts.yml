@@ -1,0 +1,110 @@
+version: 2
+
+# Fact + mart contracts. Includes `relationships` tests to verify the
+# fact's foreign keys resolve into the dimensions — these were intentionally
+# deferred from staging where the joins do not yet exist.
+
+models:
+  - name: fct_orders
+    description: "Order fact table at order_id grain. Joins lifecycle timestamps, item revenue, payment pivot, and review aggregates onto every order. Carries `customer_unique_id` as a degenerate dimension for person-level analytics."
+    columns:
+      - name: order_id
+        description: "Order primary key."
+        data_tests:
+          - unique
+          - not_null
+
+      - name: customer_id
+        description: "Per-order customer key. References dim_customer.customer_id."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_id
+
+      - name: customer_unique_id
+        description: "Person-level identifier. Joined in from stg_customers so RFM-style analytics can group by person without a second dim join."
+        data_tests:
+          - not_null
+
+      - name: order_purchase_date_key
+        description: "Date of purchase. Foreign key into dim_date."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+
+      - name: order_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              values:
+                - delivered
+                - shipped
+                - canceled
+                - invoiced
+                - processing
+                - unavailable
+                - created
+                - approved
+
+      - name: n_items
+        description: "Count of order line items. Zero for orders with no items in stg_order_items."
+        data_tests:
+          - not_null
+
+      - name: total_revenue
+        description: "Sum of (price + freight_value) across items."
+        data_tests:
+          - not_null
+
+      - name: is_on_time_delivery
+        description: "TRUE when delivered on or before the estimated date; NULL while the order is not yet delivered."
+        # No `accepted_values` for boolean because NULL is legitimate here.
+
+  - name: mart_customer_rfm
+    description: "Per-customer RFM segmentation. Grain = customer_unique_id. Excludes canceled / unavailable orders so they do not inflate frequency or monetary scores."
+    columns:
+      - name: customer_unique_id
+        description: "Person-level identifier. Unique per customer."
+        data_tests:
+          - unique
+          - not_null
+
+      - name: recency_score
+        description: "Quintile 1-5 of recency (5 = most recent purchaser)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              quote: false
+
+      - name: frequency_score
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              quote: false
+
+      - name: monetary_score
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              quote: false
+
+      - name: customer_segment
+        description: "Industry-standard RFM segment label (Champions, Loyal Customers, At Risk, etc.)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values:
+                - Champions
+                - Loyal Customers
+                - New Customers
+                - Potential Loyalists
+                - Cant Lose Them
+                - At Risk
+                - Lost
+                - About to Sleep
