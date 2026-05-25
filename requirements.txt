@@ -7,5 +7,12 @@ dbt-databricks==1.9.0
 databricks-sdk==0.17.0
 pandas==2.2.3
 
+# SQL client used by load_raw.py for DDL + CTAS against the SQL warehouse
+databricks-sql-connector==3.5.0
+
+# Kaggle dataset download (requires ~/.kaggle/kaggle.json with API token)
+kaggle==1.6.17
+
 # .env loader (read by both dbt profiles.yml and scripts/load_raw.py)
-python-dotenv==1.0.1
+# The [cli] extra installs the `dotenv` command used to wrap dbt invocations.
+python-dotenv[cli]==1.0.1
