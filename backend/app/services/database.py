@@ -84,7 +84,8 @@ def get_connection() -> Connection:
 # keeps prompts smaller and prevents the agent from joining staging /
 # intermediate tables that were never intended as a public contract.
 _MART_TABLES = [
-    "fct_orders",
+    "fct_orders",        # order-grain fact (1 row per order)
+    "fct_order_items",   # item-grain fact (1 row per line item) — seller/product/category questions live here
     "dim_customer",
     "dim_product",
     "dim_seller",

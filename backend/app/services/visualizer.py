@@ -223,10 +223,16 @@ def _render_bar(df: pd.DataFrame) -> go.Figure:
     """
     Bar chart: first column = x (categories), first numeric = y, optional grouping.
 
-    Handles 2 and 3+ column shapes:
-      (x, y)            -> simple bar
-      (x, group, y)     -> grouped bars (one color per group)
+    Handles three shapes:
+      (x, y)              -> simple bar
+      (x, group, y)       -> grouped bars (one color per categorical group)
+      (x, y1, y2, ...)    -> melted into grouped bars, one color per metric
+                             (so queries that select count + sum show both)
     """
+    if _is_multi_metric(df):
+        long = _melt_metrics(df)
+        return px.bar(long, x=long.columns[0], y="value", color="metric", barmode="group")
+
     x, y, color = _pick_xy_color(df)
     if y is None:
         return _render_table(df)
@@ -237,15 +243,86 @@ def _render_line(df: pd.DataFrame) -> go.Figure:
     """
     Line chart: first column = x (time), first numeric = y, optional grouping.
 
-    Why we no longer pass cols[1:] as wide-form y:
-      For 3+ columns with mixed types (e.g. Month, Artist, Sales), Plotly
-      Express rejects wide-form and raises ValueError. Long-form via the
-      `color` parameter is robust and looks better (one line per group).
+    Three shapes handled:
+      (x, y)                -> single line
+      (x, group, y)         -> one line per categorical group (long-form)
+      (x, y1, y2)           -> dual y-axis (left + right), so metrics on
+                                very different scales (count vs revenue)
+                                stay readable side-by-side
+      (x, y1, y2, y3, ...)  -> melted into one line per metric on a single
+                                y-axis (best effort — user can ask for one)
     """
+    cols = list(df.columns)
+    if len(cols) < 2:
+        return _render_table(df)
+
+    x = cols[0]
+    nums = [c for c in df.select_dtypes(include=["number"]).columns if c != x]
+    cats = [c for c in cols if c != x and c not in nums]
+
+    # Two numeric metrics + no categorical: dual y-axis so each metric is
+    # readable on its own scale (common case for time series with count + sum).
+    if len(nums) == 2 and not cats:
+        return _dual_axis_line(df, x, nums[0], nums[1])
+
+    # 3+ numeric metrics + no categorical: melt and overlay (best effort).
+    if len(nums) >= 3 and not cats:
+        long = _melt_metrics(df)
+        return px.line(long, x=long.columns[0], y="value", color="metric")
+
+    # Standard case: 1 numeric metric, optional categorical grouping.
     x, y, color = _pick_xy_color(df)
     if y is None:
         return _render_table(df)
     return px.line(df, x=x, y=y, color=color)
+
+
+# --- Multi-metric helpers ---------------------------------------------------
+
+def _is_multi_metric(df: pd.DataFrame) -> bool:
+    """True when the DataFrame is (x, y1, y2, ...) with no categorical group."""
+    cols = list(df.columns)
+    if len(cols) < 3:
+        return False
+    x = cols[0]
+    nums = [c for c in df.select_dtypes(include=["number"]).columns if c != x]
+    cats = [c for c in cols if c != x and c not in nums]
+    return len(nums) >= 2 and not cats
+
+
+def _melt_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert (x, y1, y2, ...) wide-form into (x, metric, value) long-form.
+
+    Used by line/bar renderers to plot multiple metrics with one trace each.
+    """
+    x = df.columns[0]
+    nums = [c for c in df.select_dtypes(include=["number"]).columns if c != x]
+    return df.melt(id_vars=[x], value_vars=nums, var_name="metric", value_name="value")
+
+
+def _dual_axis_line(df: pd.DataFrame, x: str, y1: str, y2: str) -> go.Figure:
+    """
+    Two-line chart with independent y-axes (left = y1, right = y2).
+
+    Why dual axis instead of overlay on a shared axis:
+      When the two metrics differ by orders of magnitude (e.g. ~5K orders
+      vs ~1M revenue), a shared axis squashes the smaller one to a flat
+      line near zero. Dual axes let each metric occupy the full height.
+    """
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df[x], y=df[y1], name=y1, mode="lines+markers"))
+    fig.add_trace(
+        go.Scatter(x=df[x], y=df[y2], name=y2, mode="lines+markers", yaxis="y2")
+    )
+    fig.update_layout(
+        xaxis=dict(title=x),
+        yaxis=dict(title=y1, side="left"),
+        yaxis2=dict(title=y2, side="right", overlaying="y", showgrid=False),
+        legend=dict(orientation="h", x=0, y=1.12),
+        margin=dict(t=60, r=40, b=40, l=48),
+    )
+    return fig
 
 
 # When a grouped chart (bar/line with color) would have more than this many
@@ -284,12 +361,16 @@ def _pick_xy_color(df: pd.DataFrame) -> tuple[str | None, str | None, str | None
     y = y_candidates[0]
 
     # Whatever is left (not x, not y) becomes the grouping color column.
-    # Only used when there are 3+ columns — otherwise color stays None.
-    remaining = [c for c in cols if c != x and c != y]
+    # Only CATEGORICAL columns qualify — a numeric "remaining" column is
+    # another metric, not a grouping dimension. Using a continuous numeric
+    # value as `color` produces one line per distinct value (useless) and
+    # then bails out for "too many groups", silently dropping the chart.
+    remaining = [c for c in cols if c != x and c != y and c not in nums]
     color = remaining[0] if remaining else None
 
-    # Bail out if the grouping would create too many lines/bars. The user
-    # gets a clean table instead — far more readable than 50 overlapping lines.
+    # Bail out if the categorical grouping would create too many lines/bars.
+    # The user gets a clean table instead — far more readable than 50
+    # overlapping lines.
     if color is not None and df[color].nunique() > _MAX_CHART_GROUPS:
         return None, None, None
 

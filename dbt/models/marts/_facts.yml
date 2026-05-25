@@ -63,6 +63,61 @@ models:
         description: "TRUE when delivered on or before the estimated date; NULL while the order is not yet delivered."
         # No `accepted_values` for boolean because NULL is legitimate here.
 
+  - name: fct_order_items
+    description: "Item-grain order fact. One row per (order_id, order_item_id). Pre-joined with customer/seller/product/date context so cross-dimensional analytics (top sellers, top categories, etc.) need no further joins."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_id
+            - order_item_id
+    columns:
+      - name: order_id
+        description: "Order key (composite PK part). References fct_orders.order_id."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('fct_orders')
+              field: order_id
+
+      - name: order_item_id
+        description: "Item sequence within the order (composite PK part)."
+        data_tests:
+          - not_null
+
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_id
+
+      - name: seller_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_seller')
+              field: seller_id
+
+      - name: customer_id
+        description: "Brought in from the parent order. References dim_customer.customer_id."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_id
+
+      - name: order_purchase_date_key
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+
+      - name: item_revenue
+        description: "Sum of price + freight_value for this single line item."
+        data_tests:
+          - not_null
+
   - name: mart_customer_rfm
     description: "Per-customer RFM segmentation. Grain = customer_unique_id. Excludes canceled / unavailable orders so they do not inflate frequency or monetary scores."
     columns:

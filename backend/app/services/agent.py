@@ -155,13 +155,19 @@ MANDATORY RULES:
   warehouse has no default schema set.
 - Add LIMIT 100 if the query could return many rows.
 - Use JOINs when you need to combine tables.
-- For revenue / sales questions, prefer fct_orders.total_revenue (already
-  computed as item price + freight). For payment-method breakdowns use
-  the pre-aggregated columns payment_credit_card_value, payment_boleto_value,
-  payment_voucher_value, etc.
-- For customer-level (person) analysis, group by customer_unique_id which
-  is carried on fct_orders as a degenerate dimension. Skip orders with
-  order_status IN ('canceled', 'unavailable') unless the user asks for them."""
+- Two fact tables are available — pick by question grain:
+    * fct_orders         (1 row per ORDER)  — use for order-level metrics:
+                          delivery lead times, on-time flag, payment funnel,
+                          customer-level aggregations.
+                          Has total_revenue (item price + freight pre-summed)
+                          and pivoted payment_<method>_value columns.
+    * fct_order_items    (1 row per LINE ITEM, ~113k rows) — use for any
+                          seller, product, or category question. Already
+                          carries seller_state, customer_state, product
+                          category_en, item_revenue. NO further joins needed.
+- For customer-level (person) analysis, group by customer_unique_id
+  (carried as a degenerate dimension on both facts). Skip orders with
+  order_status IN ('canceled', 'unavailable') unless the user asks otherwise."""
 
 # Appended to the system prompt when retrying after a previous error.
 # Why we show the previous query: Claude needs to see what it tried so it
