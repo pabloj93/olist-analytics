@@ -1,0 +1,96 @@
+# Eval question bank for the chatbot backend.
+#
+# Each entry has:
+#   - id          stable identifier (used in result JSON)
+#   - question    the natural-language input sent to /chat
+#   - expects     pass/fail criteria — ALL must hold for the question to pass
+#
+# Supported criteria keys (each optional):
+#   sql_contains       list[str]      — case-insensitive substrings the SQL must include
+#   must_query         list[str]      — table names the SQL must reference
+#   must_have_columns  list[str]      — column names that must appear in the result
+#   min_rows / max_rows  int          — bounds on the row count
+#   top_row            dict[str, Any] — first row's column values must match
+#                                       (strings compared case-insensitively)
+#   attempts_max       int (default 1) — allowed number of LLM retries before failing
+#
+# Ground truths are derived from the Olist dataset as loaded by the dbt
+# marts at the time of this eval design. If marts change, criteria may
+# need to be re-baselined.
+
+- id: q01_top_state_orders
+  question: "Which Brazilian state has the most orders?"
+  expects:
+    must_query: ["dim_customer"]
+    sql_contains: ["GROUP BY", "customer_state"]
+    min_rows: 1
+    top_row:
+      customer_state: "SP"
+
+- id: q02_top_10_sellers_revenue
+  question: "What are the top 10 sellers by total revenue?"
+  expects:
+    must_query: ["fct_order_items"]
+    sql_contains: ["seller_id", "GROUP BY", "ORDER BY", "LIMIT"]
+    min_rows: 10
+    max_rows: 10
+
+- id: q03_top_product_categories
+  question: "What are the top 5 product categories by total revenue?"
+  expects:
+    must_query: ["fct_order_items"]
+    sql_contains: ["category", "GROUP BY", "ORDER BY"]
+    min_rows: 1
+    max_rows: 5
+
+- id: q04_customer_rfm_distribution
+  question: "How many customers fall in each RFM segment?"
+  expects:
+    must_query: ["mart_customer_rfm"]
+    sql_contains: ["customer_segment", "GROUP BY"]
+    min_rows: 4
+    must_have_columns: ["customer_segment"]
+
+- id: q05_monthly_revenue_trend
+  question: "Show monthly order revenue across the whole dataset"
+  expects:
+    must_query: ["fct_orders"]
+    sql_contains: ["GROUP BY", "SUM"]
+    min_rows: 12
+
+- id: q06_payment_methods_mix
+  question: "What is the share of each payment method in total revenue?"
+  expects:
+    must_query: ["fct_orders"]
+    sql_contains: ["payment_credit_card_value", "payment_boleto_value"]
+    min_rows: 1
+
+- id: q07_avg_delivery_lead_time
+  question: "What is the average total delivery lead time in days for delivered orders?"
+  expects:
+    must_query: ["fct_orders"]
+    sql_contains: ["total_lead_days", "AVG", "delivered"]
+    min_rows: 1
+    max_rows: 1
+
+- id: q08_on_time_rate
+  question: "What percentage of orders were delivered on time?"
+  expects:
+    must_query: ["fct_orders"]
+    sql_contains: ["is_on_time_delivery"]
+    min_rows: 1
+
+- id: q09_top_customers_by_orders
+  question: "Who are the top 10 customers by number of orders?"
+  expects:
+    must_query: ["fct_orders"]
+    sql_contains: ["customer_unique_id", "COUNT", "GROUP BY", "ORDER BY", "LIMIT"]
+    min_rows: 10
+    max_rows: 10
+
+- id: q10_avg_review_score_by_state
+  question: "What is the average review score per Brazilian state?"
+  expects:
+    must_query: ["fct_orders", "dim_customer"]
+    sql_contains: ["AVG", "review_score", "customer_state", "GROUP BY"]
+    min_rows: 20
