@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Olist Chat — NL → SQL on Databricks</title>
+    <!--
+      Apply dark class before React hydrates to avoid a flash of wrong theme.
+      This tiny inline script runs synchronously — React reads the class on mount.
+    -->
+    <script>
+      if (localStorage.getItem('olistchat_theme') === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

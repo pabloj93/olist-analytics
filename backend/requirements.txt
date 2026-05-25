@@ -1,0 +1,53 @@
+# =============================================================================
+# SQL Agent — backend dependencies
+# =============================================================================
+# Grouped by layer so the role of each library is obvious.
+# Pinned versions for reproducibility (important for a portfolio project).
+
+# --- Web server ---
+# FastAPI: async framework with Pydantic validation and free OpenAPI docs.
+# Uvicorn: ASGI server that runs FastAPI in dev and production.
+# sse-starlette: production-ready Server-Sent Events for FastAPI (heartbeats,
+# proper formatting, proxy-safe headers).
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+sse-starlette==2.1.3
+
+# --- Config and validation ---
+# Pydantic-settings: reads the .env and validates types at startup.
+# Python-dotenv: loads the .env file into the process environment.
+pydantic==2.9.2
+pydantic-settings==2.6.0
+python-dotenv==1.0.1
+
+# --- LangChain (agent orchestration) ---
+# langchain: main framework that wires LLMs to external tools.
+# langchain-anthropic: native integration with the Claude API.
+# langchain-community: extra utilities (memory, parsers, etc.).
+# langgraph: state machine for the NL -> SQL -> retry -> answer pipeline.
+langchain==0.3.7
+langchain-anthropic==0.2.4
+langchain-community==0.3.5
+langgraph==0.2.45
+
+# --- Anthropic SDK ---
+# Used by langchain-anthropic under the hood.
+# httpx pinned for compatibility with this anthropic version.
+anthropic==0.39.0
+httpx==0.27.2
+
+# --- Database ---
+# DuckDB: in-process analytical database, zero config, runs inside Python.
+# Pandas: handles the tables returned by SQL queries.
+# sqlparse: SQL AST parser used by the validator for static analysis.
+duckdb==1.1.3
+pandas==2.2.3
+sqlparse==0.5.1
+
+# --- Visualization ---
+# Plotly: generates interactive charts as HTML — embedded directly in the UI.
+plotly==5.24.1
+
+# --- Observability ---
+# LangFuse: tracing of LLM calls, latency, generated SQL, retries.
+langfuse==2.53.0

@@ -25,6 +25,14 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Frontend (Node)
+node_modules/
+dist/
+*.tsbuildinfo
+
+# LangChain / Anthropic caches
+.langchain.db
+
 # Raw data (Olist CSVs are downloaded locally, not committed)
 data/raw/
 

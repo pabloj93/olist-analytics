@@ -1,18 +1,60 @@
-# dbt + Databricks adapter
-dbt-core==1.9.0
-dbt-databricks==1.9.0
+# =============================================================================
+# dbt-sql-agent-powerbi — full project dependencies
+# =============================================================================
+# Single requirements.txt for the whole repo (venv at .venv/ in root).
+# Grouped by component so the role of each library is obvious.
 
-# Raw ingestion: upload Olist CSVs to Unity Catalog
-# databricks-sdk pinned to 0.17.0 to match dbt-databricks 1.9.0 requirement
-databricks-sdk==0.17.0
+# --- dbt + Databricks adapter ---------------------------------------------
+# dbt 1.11+ uses pydantic 2 (via dbt-semantic-interfaces 0.9+), which is
+# compatible with FastAPI + langchain in the chatbot backend below.
+# Earlier 1.9 / 1.10 brought pydantic 1.x and conflicted.
+dbt-core==1.11.8
+dbt-databricks==1.11.8
+
+# --- Raw ingestion (Olist CSVs -> Unity Catalog) --------------------------
+# databricks-sdk version range required by dbt-databricks 1.11.x: >=0.68.0,<0.78.0
+databricks-sdk==0.77.0
 pandas==2.2.3
 
-# SQL client used by load_raw.py for DDL + CTAS against the SQL warehouse
-databricks-sql-connector==3.5.0
+# SQL client used by load_raw.py (DDL + CTAS) and by the chatbot backend
+# (NL -> SQL -> execute against marts). Range from dbt-databricks 1.11.x.
+databricks-sql-connector==4.1.5
 
-# Kaggle dataset download (requires ~/.kaggle/kaggle.json with API token)
+# Kaggle dataset download (requires ~/.kaggle/kaggle.json with API token).
 kaggle==1.6.17
 
-# .env loader (read by both dbt profiles.yml and scripts/load_raw.py)
-# The [cli] extra installs the `dotenv` command used to wrap dbt invocations.
+# --- Chatbot backend (FastAPI) --------------------------------------------
+# FastAPI + Uvicorn + SSE streaming.
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+sse-starlette==2.1.3
+
+# Config + validation (also used by .env loader for dbt commands).
+pydantic==2.9.2
+pydantic-settings==2.6.0
 python-dotenv[cli]==1.0.1
+
+# --- LangChain (agent orchestration) --------------------------------------
+# Wires the LLM to the SQL execution + validation + visualization tools.
+langchain==0.3.7
+langchain-anthropic==0.2.4
+langchain-community==0.3.5
+langgraph==0.2.45
+
+# Anthropic SDK (used by langchain-anthropic under the hood).
+anthropic==0.39.0
+httpx==0.27.2
+
+# --- SQL static analysis --------------------------------------------------
+# sqlparse AST is used by services/validator.py to block DML/DDL and to
+# auto-inject LIMIT into SELECT-only queries before they hit the warehouse.
+sqlparse==0.5.5
+
+# --- Visualization --------------------------------------------------------
+# Plotly figure specs are returned to the frontend (react-plotly.js).
+plotly==5.24.1
+
+# --- Observability --------------------------------------------------------
+# Captures LLM calls, latency, generated SQL, and retries in the LangFuse
+# dashboard. Setting LANGFUSE_*_KEY="" in .env disables tracing.
+langfuse==2.53.0
