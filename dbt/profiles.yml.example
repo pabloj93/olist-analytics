@@ -1,0 +1,28 @@
+# Copy this file to ~/.dbt/profiles.yml (Linux/Mac) or %USERPROFILE%\.dbt\profiles.yml (Windows).
+# Values are read from environment variables sourced from the repo-root .env file.
+#
+# Two targets share the same Databricks workspace + warehouse but write to different schemas:
+#   - `dev`  -> olist_dev  (your local dbt runs land here)
+#   - `prod` -> olist_prod (Power BI + chatbot read from here; promoted manually with `dbt build --target prod`)
+
+olist_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      # Databricks host: strip the "https://" prefix (the adapter does not want the scheme)
+      host: "{{ env_var('DATABRICKS_HOST') | replace('https://', '') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      catalog: "{{ env_var('DATABRICKS_CATALOG', 'workspace') }}"
+      schema: "{{ env_var('DBT_SCHEMA_DEV', 'olist_dev') }}"
+      threads: 4
+
+    prod:
+      type: databricks
+      host: "{{ env_var('DATABRICKS_HOST') | replace('https://', '') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      catalog: "{{ env_var('DATABRICKS_CATALOG', 'workspace') }}"
+      schema: "{{ env_var('DBT_SCHEMA_PROD', 'olist_prod') }}"
+      threads: 4

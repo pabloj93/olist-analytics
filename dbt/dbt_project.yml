@@ -1,0 +1,39 @@
+# dbt project configuration for olist_analytics.
+# Materialization defaults are set per layer (staging -> view, intermediate -> ephemeral, marts -> table)
+# so that marts can be read by Power BI and the chatbot without recomputing on every query.
+
+name: 'olist_analytics'
+version: '0.1.0'
+config-version: 2
+
+# Profile name must match the entry in ~/.dbt/profiles.yml (see profiles.yml.example)
+profile: 'olist_analytics'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  olist_analytics:
+    # Staging: 1:1 with source tables, light renaming/casting, cheap to rebuild.
+    staging:
+      +materialized: view
+    # Intermediate: joins and pre-aggregations consumed by multiple marts.
+    intermediate:
+      +materialized: ephemeral
+    # Marts: business-ready, consumed by BI + chatbot. Materialized as tables for read speed.
+    marts:
+      +materialized: table
+
+# Snapshot defaults (SCD type 2 lives in snapshots/).
+snapshots:
+  olist_analytics:
+    +target_schema: "{{ env_var('DBT_SCHEMA_PROD', 'olist_prod') }}_snapshots"

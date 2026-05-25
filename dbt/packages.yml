@@ -1,0 +1,5 @@
+packages:
+  # dbt_utils provides generic tests (e.g. expression_is_true, unique_combination_of_columns)
+  # and SQL helpers (date_spine, pivot, surrogate_key) used across staging and marts.
+  - package: dbt-labs/dbt_utils
+    version: 1.3.0
