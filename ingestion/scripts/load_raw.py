@@ -90,6 +90,10 @@ def create_table_from_volume(cursor, table_name: str, volume_csv: str) -> None:
     read_files() is Databricks' table-valued function for ingesting files;
     it infers the schema from the CSV header and the warehouse writes the
     resulting Delta table without round-tripping data through this client.
+
+    multiLine=true is required: the Olist reviews CSV contains Portuguese
+    free-text comments with embedded newlines inside quoted fields, which
+    would otherwise be mis-parsed as extra rows with shifted columns.
     """
     table_fqn = fq(CATALOG, RAW_SCHEMA, table_name)
     cursor.execute(
@@ -100,7 +104,9 @@ def create_table_from_volume(cursor, table_name: str, volume_csv: str) -> None:
             '{volume_csv}',
             format => 'csv',
             header => true,
-            inferSchema => true
+            inferSchema => true,
+            multiLine => true,
+            escape => '"'
         )
         """
     )

@@ -1,0 +1,31 @@
+version: 2
+
+# The `olist_raw` source maps the 9 raw Delta tables loaded by
+# ingestion/scripts/load_raw.py into Unity Catalog.
+# Staging models reference these via `{{ source('olist_raw', '<table>') }}`.
+
+sources:
+  - name: olist_raw
+    description: "Olist Brazilian E-Commerce raw tables (Kaggle dataset `olistbr/brazilian-ecommerce`), loaded as Delta tables via the load_raw.py script."
+    catalog: "{{ env_var('DATABRICKS_CATALOG', 'analytics') }}"
+    schema: "{{ env_var('DBT_SCHEMA_RAW', 'olist_raw') }}"
+
+    tables:
+      - name: olist_customers_dataset
+        description: "One row per customer-per-order. `customer_id` is unique here but the same person reappears across orders under different `customer_id` values; `customer_unique_id` is the stable person key."
+      - name: olist_geolocation_dataset
+        description: "Brazilian zip code prefix → latitude/longitude mapping. Multiple lat/long pairs per zip prefix (one per address sample)."
+      - name: olist_order_items_dataset
+        description: "Line items per order. Composite key (order_id, order_item_id). Links order → product → seller plus price and freight."
+      - name: olist_order_payments_dataset
+        description: "Payments per order. Composite key (order_id, payment_sequential). One order may have multiple installments or payment methods."
+      - name: olist_order_reviews_dataset
+        description: "Customer reviews. Mostly one review per order (review_id is unique). Score 1-5 plus optional text in Portuguese."
+      - name: olist_orders_dataset
+        description: "One row per order. Order lifecycle timestamps (purchase, approve, ship, deliver) and status."
+      - name: olist_products_dataset
+        description: "Product catalog. Includes category (Portuguese), dimensions, weight, and photo count."
+      - name: olist_sellers_dataset
+        description: "Seller catalog with zip code prefix, city and state."
+      - name: product_category_name_translation
+        description: "Lookup translating `product_category_name` (Portuguese) to `product_category_name_english`."

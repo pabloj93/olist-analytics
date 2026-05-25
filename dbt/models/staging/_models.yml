@@ -1,0 +1,143 @@
+version: 2
+
+# Staging tests: keep them tight at this layer.
+# - Primary-key uniqueness + not_null on every model.
+# - `accepted_values` for known enums.
+# - `relationships` tests are deferred to marts where joins actually happen.
+
+models:
+  - name: stg_customers
+    description: "One row per customer-per-order. `customer_unique_id` is the stable person key."
+    columns:
+      - name: customer_id
+        description: "Per-order customer key. Unique within this table."
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_unique_id
+        description: "Stable identifier for the underlying person across orders."
+        data_tests:
+          - not_null
+
+  - name: stg_geolocation
+    description: "Brazilian zip prefix → lat/long. Multiple coordinates per zip; no unique key."
+    columns:
+      - name: geolocation_zip_code_prefix
+        data_tests:
+          - not_null
+
+  - name: stg_order_items
+    description: "Order line items. Composite key (order_id, order_item_id)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_id
+            - order_item_id
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+      - name: order_item_id
+        data_tests:
+          - not_null
+      - name: price
+        data_tests:
+          - not_null
+      - name: freight_value
+        data_tests:
+          - not_null
+
+  - name: stg_order_payments
+    description: "Order payments. Composite key (order_id, payment_sequential)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_id
+            - payment_sequential
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+      - name: payment_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              values:
+                - credit_card
+                - boleto
+                - voucher
+                - debit_card
+                - not_defined
+
+  - name: stg_order_reviews
+    description: "Customer reviews. One review per order (in practice; rare duplicates)."
+    columns:
+      - name: review_id
+        description: "Review primary key."
+        data_tests:
+          - not_null
+      - name: order_id
+        data_tests:
+          - not_null
+      - name: review_score
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              quote: false
+
+  - name: stg_orders
+    description: "One row per order with lifecycle timestamps."
+    columns:
+      - name: order_id
+        description: "Order primary key."
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        data_tests:
+          - not_null
+      - name: order_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              values:
+                - delivered
+                - shipped
+                - canceled
+                - invoiced
+                - processing
+                - unavailable
+                - created
+                - approved
+      - name: order_purchase_at
+        data_tests:
+          - not_null
+
+  - name: stg_products
+    description: "Product catalog with Portuguese category names. Typos in source column names fixed here (`lenght` → `length`)."
+    columns:
+      - name: product_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_sellers
+    description: "Seller catalog with zip code prefix, city, state."
+    columns:
+      - name: seller_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_product_category_translation
+    description: "Lookup table from Portuguese to English product category names."
+    columns:
+      - name: product_category_name
+        description: "Portuguese category name. Acts as the join key into stg_products."
+        data_tests:
+          - unique
+          - not_null
+      - name: product_category_name_english
+        data_tests:
+          - not_null
