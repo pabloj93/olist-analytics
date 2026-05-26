@@ -8,21 +8,40 @@ app_port: 7860
 pinned: false
 ---
 
-# dbt-sql-agent-powerbi
+# olist-analytics
 
-> End-to-end analytics engineering on Olist Brazilian E-Commerce: **Kaggle → Databricks (dbt) → Power BI dashboard + AI chatbot**.
+> End-to-end analytics on the Olist Brazilian e-commerce dataset — **dbt on Databricks Lakehouse → curated marts → Power BI dashboard + AI chatbot** packaged as a single portfolio project. Demonstrates the modern data stack from raw CSV ingestion to consumer surfaces, with evaluation discipline and a public live demo.
 
-Single repo demonstrating a senior-level dbt project on Databricks Lakehouse, with two consumer-facing surfaces built on top of the same curated marts.
-
-🤗 **Live demo:** [huggingface.co/spaces/pabloj93/olist-chat](https://huggingface.co/spaces/pabloj93/olist-chat)
-
-![Chatbot demo](docs/chat_demo.gif)
-
-**Status:** ✅ V1 dbt · ✅ V2 Bonus 1 chatbot (90% eval) · ✅ V2 Bonus 2 Power BI · ✅ V2 Bonus 3 HF Spaces deploy
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![dbt](https://img.shields.io/badge/dbt-1.11-FF694B.svg)](https://www.getdbt.com)
+[![Databricks](https://img.shields.io/badge/Databricks-Lakehouse-FF3621.svg)](https://www.databricks.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg)](https://fastapi.tiangolo.com)
+[![LangGraph](https://img.shields.io/badge/LangGraph-0.2-1C3C3C.svg)](https://langchain-ai.github.io/langgraph/)
+[![Power BI](https://img.shields.io/badge/Power%20BI-F2C811.svg?logo=powerbi&logoColor=black)](https://powerbi.microsoft.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![HF Spaces](https://img.shields.io/badge/🤗%20HF%20Spaces-Live%20Demo-orange)](https://huggingface.co/spaces/pabloj93/olist-chat)
 
 ---
 
-## Architecture
+![Chatbot demo](docs/chat_demo.gif)
+
+---
+
+## ✨ What this demonstrates
+
+- **Analytics engineering at scale** — 9 staging views, 3 intermediates, 4 dims, 2 facts, 1 RFM mart, 1 SCD-type-2 snapshot, 2 custom macros — **91 dbt tests all passing**
+- **Modern lakehouse pattern** — Databricks Unity Catalog (catalog → schema → volume), Delta tables, idempotent ingestion via `databricks-sdk` Files API + `read_files()` CTAS
+- **Star schema done right** — `fct_orders` (order grain) and `fct_order_items` (line-item grain) sharing the same dim conformance, plus a person-level RFM mart
+- **NL → SQL chatbot** over the curated marts — LangGraph state machine with SQL validation, auto-retry, Plotly visualization, SSE streaming, LangFuse tracing
+- **Evaluation discipline** — 10 hand-curated NL questions, **90% pass rate** on first run (target ≥80%), results saved as timestamped JSON
+- **Power BI dashboard** — 4-page interactive .pbix on a custom Olist-branded theme (magenta/navy), connected to the dbt marts via Import mode
+- **Two facts, one truth** — chatbot and Power BI read from the **same dbt marts**, guaranteeing the chart and the chat agree on every number
+- **Full-stack delivery** — dbt + FastAPI + React/Vite + Tailwind + Docker, single-container deploy on Hugging Face Spaces
+- **Multi-language UX** — the chatbot answers in the user's language (Portuguese for the analyst persona, English for international recruiters — same code)
+
+---
+
+## 🏗️ Architecture
 
 ```mermaid
 flowchart LR
@@ -35,229 +54,307 @@ flowchart LR
     S --> I["intermediate<br/>3 models"]
     S --> D["dims<br/>4 tables"]
     I --> D
-    I --> F["fct_orders"]
+    I --> F["fct_orders<br/>fct_order_items"]
     D --> F
     F --> M["mart_customer_rfm"]
 
     R -.->|SCD type 2| SN["snapshot_sellers"]
 
-    F --> PBI["Power BI Dashboard<br/>(V2)"]
+    F --> PBI["Power BI Dashboard"]
     M --> PBI
-    F --> BOT["AI Chatbot<br/>(V2)"]
+    F --> BOT["AI Chatbot<br/>(HF Spaces)"]
     M --> BOT
+
+    classDef ext fill:#fef3c7,stroke:#f59e0b
+    class PBI,BOT ext
 ```
 
+**Pipeline (one-time setup):**
+
+1. `download_olist.py` pulls the Kaggle dataset to `data/raw/*.csv`
+2. `load_raw.py` uploads CSVs to a Unity Catalog Volume, then `CREATE OR REPLACE TABLE ... AS SELECT * FROM read_files(...)` materializes 9 Delta tables in `analytics.olist_raw`
+3. `dbt build` runs staging → intermediate → marts → tests → snapshot (~3 min, 91 tests PASS)
+4. Same marts are then consumed by both the Power BI dashboard (Import mode via ODBC) and the chatbot backend (live via `databricks-sql-connector`)
+
+**Chatbot request flow:**
+
+1. User asks *"What are the top 10 sellers by total revenue?"* → frontend POSTs to `/chat/stream`
+2. `route_intent` sees no chart-type keyword → routes to `generate_sql`
+3. `generate_sql` injects the marts schema + Olist-specific hints into the LLM prompt
+4. `validate_sql` parses the SQL with sqlparse — blocks DDL/DML, auto-adds `LIMIT 100`
+5. `execute_sql` runs on Databricks; on error, the message feeds back to `generate_sql` for retry
+6. `visualize` picks a chart type from the data shape (dual-axis line for time + 2 metrics, melted multi-line for 3+ metrics, donut, bar, table)
+7. `respond` streams a markdown analysis of the result
+8. LangFuse records every node as a span; trace_id returned in the final SSE event
+
 ---
 
-## Stack
+## 🚀 Quick Start
 
-| Layer | Tool | Why |
-|---|---|---|
-| Transformation | **dbt-core** 1.9 + **dbt-databricks** adapter | Industry-standard analytics engineering tool |
-| Warehouse | **Databricks Free Edition** (serverless SQL warehouse + Unity Catalog) | Real lakehouse for the CV; $0 free tier |
-| Ingestion | Python + `databricks-sdk` Files API + `read_files()` CTAS | Modern UC pattern; idempotent; ~2 min for 1.5M rows |
-| Dataset | **Olist Brazilian E-Commerce** (Kaggle `olistbr/brazilian-ecommerce`) | Rich marketplace data: orders, sellers, customers, reviews, geolocation |
-| Tests | dbt built-ins + `dbt_utils` (1.3.0) | 77 tests, all PASS |
-| Docs | `dbt docs generate` + Mermaid (architecture) | Auto-generated lineage + manual diagrams |
-| BI (V2) | Power BI Desktop via ODBC | `.pbix` versioned, screenshots + screen-capture demo |
-| Chatbot (V2) | FastAPI + LLM + `databricks-sql-connector` | NL question → SQL → Databricks |
+### Prerequisites
 
----
+- Python 3.11+
+- A [Databricks Free Edition](https://www.databricks.com/learn/free-edition) workspace with a serverless SQL warehouse
+- A [Kaggle API token](https://www.kaggle.com/settings) at `~/.kaggle/kaggle.json`
+- API keys for [Anthropic](https://console.anthropic.com) and optionally [LangFuse](https://cloud.langfuse.com) (chatbot only)
 
-## Quick start
-
-> Requires: Python 3.11+, [Databricks Free Edition](https://www.databricks.com/learn/free-edition) workspace with a SQL warehouse, and a [Kaggle API token](https://www.kaggle.com/settings) at `~/.kaggle/kaggle.json`.
+### 1. Clone and install
 
 ```powershell
-# 1. Clone + venv + install
-git clone <repo-url> dbt-sql-agent-powerbi
-cd dbt-sql-agent-powerbi
+git clone https://github.com/pabloj93/olist-analytics.git
+cd olist-analytics
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+```
 
-# 2. Fill the .env (see .env.example for every variable)
+### 2. Configure environment
+
+```powershell
 copy .env.example .env
-notepad .env
+# Fill in DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_HTTP_PATH (required)
+# Plus ANTHROPIC_API_KEY (required for chatbot)
+```
 
-# 3. Add the dbt profile (or append to existing ~/.dbt/profiles.yml)
+### 3. Add the dbt profile
+
+```powershell
+# Append the olist_analytics profile to ~/.dbt/profiles.yml
 copy dbt\profiles.yml.example $env:USERPROFILE\.dbt\profiles.yml
+```
 
-# 4. Download Olist + load into Unity Catalog (~2 min)
+### 4. Build the marts on Databricks
+
+```powershell
 python ingestion/scripts/download_olist.py
 dotenv -f .env run -- python ingestion/scripts/load_raw.py
-
-# 5. Build + test everything
 dotenv -f .env run -- dbt deps --project-dir dbt
 dotenv -f .env run -- dbt build --project-dir dbt
 ```
 
-After step 5 you should see `Done. PASS=77 WARN=0 ERROR=0 SKIP=0 TOTAL=77`.
+Expect `Done. PASS=77 WARN=0 ERROR=0 SKIP=0 TOTAL=77` (staging + intermediate + marts) plus 14 tests on `fct_order_items`. **91/91 tests passing.**
 
-Browse the docs locally:
+### 5. Run the chatbot
 
 ```powershell
-dotenv -f .env run -- dbt docs generate --project-dir dbt
-dotenv -f .env run -- dbt docs serve --project-dir dbt
+# Terminal 1 — backend
+dotenv -f .env run -- uvicorn app.main:app --app-dir backend
+
+# Terminal 2 — frontend
+cd frontend
+npm install
+npm run dev
 ```
 
----
+Then open **http://localhost:5173**.
 
-## Models
+> **Live demo:** [huggingface.co/spaces/pabloj93/olist-chat](https://huggingface.co/spaces/pabloj93/olist-chat) — hosted on Hugging Face Spaces (may take ~30 s to wake the Databricks warehouse on the first request).
 
-| Layer | Models | Materialization |
-|---|---|---|
-| **staging** (9) | `stg_customers`, `stg_geolocation`, `stg_order_items`, `stg_order_payments`, `stg_order_reviews`, `stg_orders`, `stg_products`, `stg_sellers`, `stg_product_category_translation` | view |
-| **intermediate** (3) | `int_geolocation_centroid` (table), `int_order_revenue`, `int_order_payments_pivoted` | ephemeral except geo |
-| **marts — dims** (4) | `dim_date`, `dim_customer`, `dim_product`, `dim_seller` | table |
-| **marts — facts** (2) | `fct_orders`, `mart_customer_rfm` | table |
-| **snapshots** (1) | `snapshot_sellers` (SCD type 2 on city/state) | snapshot |
+### Try these prompts
 
-**Macros:** `generate_schema_name` (override default), `pivot_payment_methods` (dynamic pivot via `dbt_utils.get_column_values`).
-
----
-
-## Test results
-
-| Test type | Count | Pass rate |
-|---|---:|---:|
-| `unique` | 12 | 100% |
-| `not_null` | 36 | 100% |
-| `accepted_values` | 13 | 100% |
-| `relationships` | 2 | 100% |
-| `dbt_utils.unique_combination_of_columns` | 2 | 100% |
-| **Total** | **77** | **100%** |
-
-Captured from `dbt build` against `target=dev` (Databricks Free Edition).
-
----
-
-## Repository layout
-
-```
-.
-├── PRD.md                          Project requirements & roadmap
-├── README.md                       This file
-├── requirements.txt                Pinned Python deps
-├── .env.example                    Template — fill and rename to .env
-│
-├── ingestion/scripts/
-│   ├── download_olist.py           Kaggle API -> data/raw/
-│   └── load_raw.py                 data/raw/ -> Unity Catalog Volume -> Delta tables
-│
-├── dbt/
-│   ├── dbt_project.yml             Project config
-│   ├── packages.yml                dbt_utils
-│   ├── profiles.yml.example        Adapter config template
-│   ├── models/
-│   │   ├── staging/                9 stg_*.sql + _sources.yml + _models.yml
-│   │   ├── intermediate/           3 int_*.sql + _models.yml
-│   │   └── marts/                  dim_*, fct_*, mart_* + _dims.yml + _facts.yml
-│   ├── macros/                     generate_schema_name + pivot_payment_methods
-│   └── snapshots/                  snapshot_sellers (SCD2)
-│
-├── backend/                        V2 — FastAPI chatbot
-├── powerbi/                        V2 — .pbix + screenshots + screen-capture demo
-└── docs/                           Architecture diagrams, extra docs
+```text
+What are the top 10 sellers by total revenue?
+Which Brazilian state has the most orders?
+Show monthly order revenue as a line chart
+How many customers fall in each RFM segment?
 ```
 
+After any result, follow up with **"show as pie chart"** to see chart re-rendering without re-running SQL.
+
 ---
 
-## Power BI dashboard (V2 Bonus 2)
+## 🎨 Power BI Dashboard
 
-Four-page interactive dashboard against the dbt marts, themed with the
-Olist Brand palette (`powerbi/theme.json`) — magenta primary + navy
-secondary + cream background, Segoe UI / Bahnschrift fonts (native Windows).
+Four-page interactive dashboard built on the same Databricks marts in **Import mode**, themed with the Olist Brand palette (magenta `#E11380` + navy `#1E3A5F` + cream background, native Segoe UI / Bahnschrift fonts).
 
 | Page | Visuals |
 |---|---|
-| Executive | 4 KPI cards (Revenue, Orders, Customers, AOV) + dual-axis monthly revenue line + year slicer |
-| Geography | Brazil filled map shaded by revenue + Top 10 states bar + States/Cities cards |
-| Marketplace | Top 10 sellers bar + Revenue by category donut + Sellers/Products/Avg-review cards |
-| Customer RFM | Segment donut + summary table (avg R/F/M + count) + segment × recency stacked bar |
+| **Executive** | Revenue / Orders / Customers / AOV cards + dual-axis monthly trend + year slicer |
+| **Geography** | Brazil filled map shaded by revenue + Top 10 states bar + states/cities cards |
+| **Marketplace** | Top 10 sellers bar + Revenue-by-category donut + sellers/products/avg-review cards |
+| **Customer RFM** | RFM segment donut + summary table (avg R/F/M + count) + segment × recency stacked bar |
 
 ![Executive](powerbi/screenshots/01_executive.png)
 ![Geography](powerbi/screenshots/02_geography.png)
 ![Marketplace](powerbi/screenshots/03_marketplace.png)
 ![Customer RFM](powerbi/screenshots/04_customer_rfm.png)
 
-Open [`powerbi/olist_dashboard.pbix`](powerbi/olist_dashboard.pbix) in
-Power BI Desktop to interact. Live demo: [`powerbi/screenshots/demo.gif`](powerbi/screenshots/demo.gif).
+Open [`powerbi/olist_dashboard.pbix`](powerbi/olist_dashboard.pbix) in Power BI Desktop to interact (read-only without access to the underlying Databricks warehouse). The custom theme lives at [`powerbi/theme.json`](powerbi/theme.json) — import via **View → Themes → Browse for themes**.
 
 ---
 
-## AI chatbot (V2 Bonus 1)
+## 🗂️ Project Structure
 
-FastAPI backend + reused `sql-agent` React frontend. LangGraph state machine
-walks NL → SQL → validate → execute against Databricks → render Plotly →
-stream tokens back over SSE. LangFuse traces every node.
+```
+olist-analytics/
+├── dbt/
+│   ├── dbt_project.yml            # Project config, per-layer materializations
+│   ├── packages.yml               # dbt_utils
+│   ├── profiles.yml.example       # Databricks adapter profile (env_var driven)
+│   ├── models/
+│   │   ├── staging/               # 9 stg_*.sql views (1:1 with source, rename + cast)
+│   │   │   ├── _sources.yml       # 9 raw Olist tables declared
+│   │   │   └── _models.yml        # 30 tests (unique, not_null, accepted_values, dbt_utils)
+│   │   ├── intermediate/          # 3 int_*.sql (geo centroid, order revenue, payment pivot)
+│   │   └── marts/                 # dims + fct_orders + fct_order_items + mart_customer_rfm
+│   │       ├── _dims.yml
+│   │       └── _facts.yml         # Tests + relationships from facts → dims
+│   ├── macros/
+│   │   ├── generate_schema_name.sql        # Override prefix-concat default
+│   │   └── pivot_payment_methods.sql       # Dynamic pivot via dbt_utils.get_column_values
+│   └── snapshots/
+│       └── snapshot_sellers.sql            # SCD type 2 on city/state
+├── ingestion/
+│   └── scripts/
+│       ├── download_olist.py      # Kaggle API → data/raw/
+│       └── load_raw.py            # data/raw/ → UC Volume → Delta tables (idempotent)
+├── backend/
+│   ├── Dockerfile                 # Local-only build (composes alongside frontend)
+│   └── app/
+│       ├── config.py              # Pydantic settings — fail-fast on missing env vars
+│       ├── main.py                # FastAPI app + CORS + SPA mount
+│       ├── routers/chat.py        # POST /chat (sync) + /chat/stream (SSE)
+│       └── services/
+│           ├── database.py        # databricks-sql-connector singleton + schema allow-list
+│           ├── agent.py           # LangGraph state machine (the heart of the chatbot)
+│           ├── validator.py       # sqlparse AST analysis + auto-LIMIT
+│           ├── visualizer.py      # Plotly chart picker + multi-metric handling
+│           └── tracing.py         # LangFuse per-request trace factory
+├── frontend/
+│   ├── Dockerfile                 # Local-only (composes alongside backend)
+│   └── src/
+│       ├── App.tsx                # Chat UI — bubbles, collapsible SQL, charts, markdown
+│       ├── Sidebar.tsx            # Conversation history (localStorage)
+│       ├── PlotlyChart.tsx        # react-plotly.js wrapper with ResizeObserver
+│       ├── useChat.ts             # SSE consumer + chart-re-render flow
+│       └── useConversations.ts    # localStorage history management
+├── eval/
+│   ├── questions.yaml             # 10 NL questions + per-question expectations
+│   └── run_eval.py                # Harness → JSON report + pass/fail metrics
+├── powerbi/
+│   ├── olist_dashboard.pbix       # 4-page dashboard
+│   ├── theme.json                 # Olist Brand Power BI theme (importable)
+│   └── screenshots/               # 4 page PNGs + demo.gif
+├── docs/
+│   └── chat_demo.gif              # ~30s chatbot demo
+├── Dockerfile                     # Single-container build for HF Spaces (FE + BE)
+├── requirements.txt               # Consolidated deps (dbt + ingestion + backend)
+└── .env.example
+```
 
-Evaluation harness ([`eval/run_eval.py`](eval/run_eval.py)) runs 10
-programmatic NL questions against the live backend and asserts SQL
-substrings, table references, row counts, and known top-row values.
+---
+
+## 🔧 Customization
+
+| To change... | Edit... |
+|---|---|
+| Databricks catalog / schema | `.env` → `DATABRICKS_CATALOG`, `DBT_SCHEMA_DEV`, `DBT_SCHEMA_PROD`, `DATABRICKS_CHATBOT_SCHEMA` |
+| LLM model | `.env` → `CLAUDE_MODEL=claude-sonnet-4-6` |
+| Max chatbot retries | `.env` → `MAX_RETRIES=2` |
+| Tables exposed to the LLM | `backend/app/services/database.py` → `_MART_TABLES` |
+| dbt materialization defaults | `dbt/dbt_project.yml` (per-layer) |
+| New macro | `dbt/macros/*.sql` |
+| New eval question | `eval/questions.yaml` |
+| Chart type heuristic | `backend/app/services/visualizer.py` → `decide_chart_type` |
+| Power BI theme | `powerbi/theme.json` (re-import after editing) |
+
+---
+
+## 📊 Evaluation
+
+Run the included harness against a live backend:
+
+```powershell
+# Backend must be running locally (or pointed at the HF Space URL)
+dotenv -f .env run -- python eval/run_eval.py
+```
+
+The harness sends each NL question to `/chat`, then verifies SQL substrings, required tables, row counts, top-row values, and number of LLM retries.
+
+**Latest results (10 questions):**
 
 | Metric | Value |
 |---|---|
-| Eval questions | 10 (across all 7 marts) |
-| Baseline pass rate | **90 %** (target ≥ 80 %) |
-| Median latency | ~12 s/question (warehouse warm) |
+| Pass rate | **9 / 10 (90%)** |
+| Target | ≥ 80% |
+| Avg latency (warehouse warm) | ~12 s |
+| Failure mode | Transient `httpx.RemoteProtocolError` on a single Anthropic streaming request |
 
-Run locally:
+**Coverage:**
+
+| Category | Cases | Mart(s) used |
+|---|---|---|
+| Top state by orders | 1 | `fct_orders` + `dim_customer` |
+| Top sellers by revenue | 1 | `fct_order_items` |
+| Top product categories | 1 | `fct_order_items` + `dim_product` |
+| RFM segment distribution | 1 | `mart_customer_rfm` |
+| Monthly revenue trend | 1 | `fct_orders` + `dim_date` |
+| Payment-method mix | 1 | `fct_orders` (pivoted columns) |
+| Delivery SLAs (lead time + on-time rate) | 2 | `fct_orders` |
+| Top customers by orders | 1 | `fct_orders` (degenerate `customer_unique_id`) |
+| Avg review score by state | 1 | `fct_orders` + `dim_customer` |
+
+Each run writes `eval/results/<UTC-timestamp>.json` for trend tracking. Exit code is `0` when `pass_rate ≥ 0.80` — usable as a CI gate.
+
+---
+
+## 🛣️ Roadmap
+
+### V1 — Core dbt ✅ Complete
+- [x] Idempotent raw ingestion (Kaggle → UC Volume → Delta tables)
+- [x] Staging layer (9 views, 30 tests)
+- [x] Intermediate layer (3 models, including dynamic pivot of payment methods)
+- [x] Dimensional model (4 dims + 2 facts + 1 person-grain RFM mart)
+- [x] SCD type 2 snapshot on sellers
+- [x] 2 custom macros (`generate_schema_name`, `pivot_payment_methods`)
+- [x] 91 / 91 tests passing across all layers (including `relationships` from facts → dims)
+- [x] `dbt docs generate` lineage
+
+### V2 — Consumer surfaces ✅ Complete
+- [x] **Bonus 1** — AI chatbot (FastAPI + LangGraph + LangFuse + Plotly) over the marts
+- [x] **Eval harness** — 10 programmatic questions, 90% pass rate baseline
+- [x] **Bonus 2** — Power BI dashboard (4 pages, on-brand theme, screenshots + gif)
+- [x] **Bonus 3** — Single-container deploy on Hugging Face Spaces
+
+### V3 — Stretch goals
+- [ ] GitHub Actions running `dbt build` on PR against a `ci_*` schema
+- [ ] LLM-as-judge layer on top of the programmatic eval
+- [ ] Cost dashboard in the chatbot UI (tokens + USD per turn)
+- [ ] Multi-tenant chatbot session persistence (Redis or LangGraph checkpointer)
+
+---
+
+## 🚢 Deploy to Hugging Face Spaces
 
 ```powershell
-dotenv -f .env run -- uvicorn app.main:app --app-dir backend  # terminal 1
-cd frontend; npm run dev                                       # terminal 2
-# open http://localhost:5173
-```
-
-### Single-container deploy (Hugging Face Spaces)
-
-The root [`Dockerfile`](Dockerfile) is a 2-stage build:
-
-1. **Node 20 stage** — `npm ci` + `npm run build` produces `frontend/dist`
-2. **Python 3.11-slim stage** — installs `requirements.txt`, copies `backend/app`, copies the static `dist` from stage 1, exposes port `7860`
-
-At runtime, `backend/app/main.py` detects `/app/dist` and mounts it under `/`,
-so the same uvicorn process serves the SPA and the `/chat*` API on a single
-port — exactly what HF Spaces expects.
-
-To deploy:
-
-```powershell
-# 1. Local sanity check
+# Build the single-container image and sanity-check locally
 docker build -t olist-chat-hf .
 docker run -p 7860:7860 --env-file .env olist-chat-hf
 # open http://localhost:7860
 
-# 2. Create the Space on huggingface.co  (sdk: docker)
-# 3. Add this repo as a remote
-git remote add space https://huggingface.co/spaces/<your-user>/olist-chat
+# Push to your Space (after creating it on huggingface.co with sdk: docker)
+git remote add space https://huggingface.co/spaces/YOUR_USERNAME/olist-chat
 git push space main
-
-# 4. In the Space → Settings → Variables and secrets, set:
-#    ANTHROPIC_API_KEY, CLAUDE_MODEL,
-#    DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_HTTP_PATH,
-#    DATABRICKS_CATALOG, DATABRICKS_CHATBOT_SCHEMA,
-#    LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY (optional)
 ```
 
----
+The root [`Dockerfile`](Dockerfile) is a 2-stage build: a Node stage produces the React `dist/` with `VITE_BACKEND_URL=""` (relative URLs, same-origin), then a Python 3.11-slim stage installs the consolidated `requirements.txt`, copies `backend/app` plus the static `dist`, and runs `uvicorn ... --port 7860`. `backend/app/main.py` mounts `dist/` under `/` so a single uvicorn serves both the SPA and the API.
 
-## Roadmap
+Configure the following in **Space → Settings → Variables and secrets** (paste each value **without a trailing newline** — HTTP headers reject `\n`):
 
-- **V1 — Core dbt:** ✅ done (91 tests PASS)
-- **V2 — Bonuses:**
-  - ✅ Bonus 1 — AI chatbot (FastAPI + LangGraph + LangFuse + 10Q eval, 90 % PASS)
-  - ✅ Bonus 2 — Power BI dashboard (4 pages, Olist Brand theme, screenshots + demo gif)
-  - ⏳ Bonus 3 — HF Spaces deploy of the chatbot (single Docker image, public URL)
-- **V3 — Stretch:**
-  - GitHub Actions running `dbt build` on PR against a `ci_*` schema
-  - LLM-as-judge layer on top of the programmatic eval
-
-See [PRD.md](PRD.md) for the full design and decisions log.
+| Type | Keys |
+|---|---|
+| **Secrets** | `ANTHROPIC_API_KEY`, `DATABRICKS_TOKEN`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` |
+| **Variables** | `DATABRICKS_HOST`, `DATABRICKS_HTTP_PATH`, `DATABRICKS_CATALOG`, `DATABRICKS_CHATBOT_SCHEMA`, `CLAUDE_MODEL` |
 
 ---
 
-## Dataset
+## 📄 License
 
-[Olist Brazilian E-Commerce Public Dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) by Olist, licensed CC BY-NC-SA 4.0.
+MIT © Pablo
+
+---
+
+## 🙌 Stack
+
+[dbt](https://www.getdbt.com) · [Databricks](https://www.databricks.com) · [Unity Catalog](https://www.databricks.com/product/unity-catalog) · [FastAPI](https://fastapi.tiangolo.com) · [LangGraph](https://langchain-ai.github.io/langgraph/) · [LangChain](https://python.langchain.com) · [LangFuse](https://langfuse.com) · [Plotly](https://plotly.com) · [Power BI](https://powerbi.microsoft.com) · [React](https://react.dev) · [Vite](https://vitejs.dev) · [Tailwind CSS](https://tailwindcss.com) · [sse-starlette](https://github.com/sysid/sse-starlette) · [sqlparse](https://github.com/andialbrecht/sqlparse)
+</content>
