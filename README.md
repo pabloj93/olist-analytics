@@ -16,7 +16,9 @@ Single repo demonstrating a senior-level dbt project on Databricks Lakehouse, wi
 
 🤗 **Live demo:** [huggingface.co/spaces/pabloj93/olist-chat](https://huggingface.co/spaces/pabloj93/olist-chat)
 
-**Status:** V1 complete (core dbt) · V2 Bonus 1 chatbot done (90% eval pass) · V2 Bonus 2 Power BI done · V2 Bonus 3 deployed to HF Spaces
+![Chatbot demo](docs/chat_demo.gif)
+
+**Status:** ✅ V1 dbt · ✅ V2 Bonus 1 chatbot (90% eval) · ✅ V2 Bonus 2 Power BI · ✅ V2 Bonus 3 HF Spaces deploy
 
 ---
 
