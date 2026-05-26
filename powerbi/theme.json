@@ -1,0 +1,131 @@
+{
+  "name": "Olist Brand",
+  "dataColors": [
+    "#E11380",
+    "#1E3A5F",
+    "#059669",
+    "#F97316",
+    "#7C3AED",
+    "#0891B2",
+    "#DC2626",
+    "#475569"
+  ],
+  "background": "#FFFAF5",
+  "foreground": "#0F172A",
+  "tableAccent": "#E11380",
+
+  "good": "#059669",
+  "neutral": "#475569",
+  "bad": "#DC2626",
+  "maximum": "#7C0858",
+  "center": "#E11380",
+  "minimum": "#FBE2EE",
+  "null": "#E2E8F0",
+
+  "textClasses": {
+    "title": {
+      "fontFace": "Segoe UI Semibold",
+      "fontSize": 20,
+      "color": "#0F172A"
+    },
+    "header": {
+      "fontFace": "Segoe UI Semibold",
+      "fontSize": 14,
+      "color": "#0F172A"
+    },
+    "label": {
+      "fontFace": "Segoe UI",
+      "fontSize": 11,
+      "color": "#475569"
+    },
+    "callout": {
+      "fontFace": "Bahnschrift SemiBold",
+      "fontSize": 36,
+      "color": "#E11380"
+    }
+  },
+
+  "visualStyles": {
+    "*": {
+      "*": {
+        "background": [
+          { "show": true, "color": { "solid": { "color": "#FFFFFF" } }, "transparency": 0 }
+        ],
+        "border": [
+          { "show": true, "color": { "solid": { "color": "#F3D8E0" } }, "radius": 4 }
+        ],
+        "title": [
+          { "show": true, "fontFamily": "Segoe UI Semibold", "fontSize": 13, "fontColor": { "solid": { "color": "#0F172A" } }, "alignment": "left" }
+        ]
+      }
+    },
+    "card": {
+      "*": {
+        "categoryLabels": [
+          { "show": true, "fontFamily": "Segoe UI", "fontSize": 11, "color": { "solid": { "color": "#475569" } } }
+        ],
+        "labels": [
+          { "fontFamily": "Bahnschrift SemiBold", "fontSize": 36, "color": { "solid": { "color": "#E11380" } } }
+        ]
+      }
+    },
+    "barChart": {
+      "*": {
+        "dataPoint": [
+          { "defaultColor": { "solid": { "color": "#E11380" } } }
+        ]
+      }
+    },
+    "columnChart": {
+      "*": {
+        "dataPoint": [
+          { "defaultColor": { "solid": { "color": "#E11380" } } }
+        ]
+      }
+    },
+    "lineChart": {
+      "*": {
+        "lineStyles": [
+          { "strokeWidth": 3, "showMarker": true, "markerSize": 6 }
+        ]
+      }
+    },
+    "donutChart": {
+      "*": {
+        "labels": [
+          { "show": true, "fontFamily": "Segoe UI", "fontSize": 10 }
+        ],
+        "slices": [
+          { "innerRadiusRatio": 60 }
+        ]
+      }
+    },
+    "filledMap": {
+      "*": {
+        "shapes": [
+          { "borderColor": { "solid": { "color": "#FFFFFF" } }, "borderThickness": 1 }
+        ]
+      }
+    },
+    "tableEx": {
+      "*": {
+        "grid": [
+          { "gridHorizontal": true, "gridHorizontalColor": { "solid": { "color": "#F3D8E0" } }, "gridVertical": false }
+        ],
+        "columnHeaders": [
+          { "fontFamily": "Segoe UI Semibold", "fontSize": 11, "fontColor": { "solid": { "color": "#0F172A" } }, "backColor": { "solid": { "color": "#FFFAF5" } } }
+        ],
+        "values": [
+          { "fontFamily": "Segoe UI", "fontSize": 11, "backColorPrimary": { "solid": { "color": "#FFFFFF" } }, "backColorSecondary": { "solid": { "color": "#FFF7FB" } } }
+        ]
+      }
+    },
+    "page": {
+      "*": {
+        "background": [
+          { "color": { "solid": { "color": "#FFFAF5" } }, "transparency": 0 }
+        ]
+      }
+    }
+  }
+}

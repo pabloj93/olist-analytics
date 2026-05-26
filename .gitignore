@@ -39,5 +39,9 @@ data/raw/
 # Power BI working backups
 *.pbix.bak
 
+# Power BI personal docs — kept locally as references, not committed
+powerbi/SETUP.md
+powerbi/VISUAL_IDENTITY.md
+
 # Eval results (timestamped JSON outputs)
 eval/results/
