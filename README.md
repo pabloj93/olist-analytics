@@ -1,10 +1,22 @@
+---
+title: Olist Chat
+emoji: 🛒
+colorFrom: pink
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # dbt-sql-agent-powerbi
 
 > End-to-end analytics engineering on Olist Brazilian E-Commerce: **Kaggle → Databricks (dbt) → Power BI dashboard + AI chatbot**.
 
 Single repo demonstrating a senior-level dbt project on Databricks Lakehouse, with two consumer-facing surfaces built on top of the same curated marts.
 
-**Status:** V1 complete (core dbt) · V2 Bonus 1 chatbot done (90% eval pass) · V2 Bonus 2 Power BI done · V2 Bonus 3 HF Spaces pending
+![Chatbot demo](docs/chatbot_demo.gif)
+
+**Status:** V1 complete (core dbt) · V2 Bonus 1 chatbot done (90% eval pass) · V2 Bonus 2 Power BI done · V2 Bonus 3 deployed to HF Spaces
 
 ---
 
@@ -194,6 +206,37 @@ Run locally:
 dotenv -f .env run -- uvicorn app.main:app --app-dir backend  # terminal 1
 cd frontend; npm run dev                                       # terminal 2
 # open http://localhost:5173
+```
+
+### Single-container deploy (Hugging Face Spaces)
+
+The root [`Dockerfile`](Dockerfile) is a 2-stage build:
+
+1. **Node 20 stage** — `npm ci` + `npm run build` produces `frontend/dist`
+2. **Python 3.11-slim stage** — installs `requirements.txt`, copies `backend/app`, copies the static `dist` from stage 1, exposes port `7860`
+
+At runtime, `backend/app/main.py` detects `/app/dist` and mounts it under `/`,
+so the same uvicorn process serves the SPA and the `/chat*` API on a single
+port — exactly what HF Spaces expects.
+
+To deploy:
+
+```powershell
+# 1. Local sanity check
+docker build -t olist-chat-hf .
+docker run -p 7860:7860 --env-file .env olist-chat-hf
+# open http://localhost:7860
+
+# 2. Create the Space on huggingface.co  (sdk: docker)
+# 3. Add this repo as a remote
+git remote add space https://huggingface.co/spaces/<your-user>/olist-chat
+git push space main
+
+# 4. In the Space → Settings → Variables and secrets, set:
+#    ANTHROPIC_API_KEY, CLAUDE_MODEL,
+#    DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_HTTP_PATH,
+#    DATABRICKS_CATALOG, DATABRICKS_CHATBOT_SCHEMA,
+#    LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY (optional)
 ```
 
 ---
