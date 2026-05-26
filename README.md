@@ -14,7 +14,7 @@ pinned: false
 
 Single repo demonstrating a senior-level dbt project on Databricks Lakehouse, with two consumer-facing surfaces built on top of the same curated marts.
 
-![Chatbot demo](docs/chatbot_demo.gif)
+🤗 **Live demo:** [huggingface.co/spaces/pabloj93/olist-chat](https://huggingface.co/spaces/pabloj93/olist-chat)
 
 **Status:** V1 complete (core dbt) · V2 Bonus 1 chatbot done (90% eval pass) · V2 Bonus 2 Power BI done · V2 Bonus 3 deployed to HF Spaces
 
