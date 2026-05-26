@@ -4,7 +4,7 @@
 
 Single repo demonstrating a senior-level dbt project on Databricks Lakehouse, with two consumer-facing surfaces built on top of the same curated marts.
 
-**Status:** V1 complete (core dbt) · V2 in progress (chatbot + Power BI + HF Spaces deploy)
+**Status:** V1 complete (core dbt) · V2 Bonus 1 chatbot done (90% eval pass) · V2 Bonus 2 Power BI done · V2 Bonus 3 HF Spaces pending
 
 ---
 
@@ -149,16 +149,65 @@ Captured from `dbt build` against `target=dev` (Databricks Free Edition).
 
 ---
 
+## Power BI dashboard (V2 Bonus 2)
+
+Four-page interactive dashboard against the dbt marts, themed with the
+Olist Brand palette (`powerbi/theme.json`) — magenta primary + navy
+secondary + cream background, Segoe UI / Bahnschrift fonts (native Windows).
+
+| Page | Visuals |
+|---|---|
+| Executive | 4 KPI cards (Revenue, Orders, Customers, AOV) + dual-axis monthly revenue line + year slicer |
+| Geography | Brazil filled map shaded by revenue + Top 10 states bar + States/Cities cards |
+| Marketplace | Top 10 sellers bar + Revenue by category donut + Sellers/Products/Avg-review cards |
+| Customer RFM | Segment donut + summary table (avg R/F/M + count) + segment × recency stacked bar |
+
+![Executive](powerbi/screenshots/01_executive.png)
+![Geography](powerbi/screenshots/02_geography.png)
+![Marketplace](powerbi/screenshots/03_marketplace.png)
+![Customer RFM](powerbi/screenshots/04_customer_rfm.png)
+
+Open [`powerbi/olist_dashboard.pbix`](powerbi/olist_dashboard.pbix) in
+Power BI Desktop to interact. Live demo: [`powerbi/screenshots/demo.gif`](powerbi/screenshots/demo.gif).
+
+---
+
+## AI chatbot (V2 Bonus 1)
+
+FastAPI backend + reused `sql-agent` React frontend. LangGraph state machine
+walks NL → SQL → validate → execute against Databricks → render Plotly →
+stream tokens back over SSE. LangFuse traces every node.
+
+Evaluation harness ([`eval/run_eval.py`](eval/run_eval.py)) runs 10
+programmatic NL questions against the live backend and asserts SQL
+substrings, table references, row counts, and known top-row values.
+
+| Metric | Value |
+|---|---|
+| Eval questions | 10 (across all 7 marts) |
+| Baseline pass rate | **90 %** (target ≥ 80 %) |
+| Median latency | ~12 s/question (warehouse warm) |
+
+Run locally:
+
+```powershell
+dotenv -f .env run -- uvicorn app.main:app --app-dir backend  # terminal 1
+cd frontend; npm run dev                                       # terminal 2
+# open http://localhost:5173
+```
+
+---
+
 ## Roadmap
 
-- **V1 — Core dbt:** ✅ done
-- **V2 — Bonuses (in progress):**
-  - Power BI dashboard (`.pbix` + screenshots + ~30s demo video)
-  - AI chatbot (FastAPI + LLM + `databricks-sql-connector`, reusing the `sql-agent` frontend)
-  - HF Spaces deploy of the chatbot (single Docker image, public URL)
+- **V1 — Core dbt:** ✅ done (91 tests PASS)
+- **V2 — Bonuses:**
+  - ✅ Bonus 1 — AI chatbot (FastAPI + LangGraph + LangFuse + 10Q eval, 90 % PASS)
+  - ✅ Bonus 2 — Power BI dashboard (4 pages, Olist Brand theme, screenshots + demo gif)
+  - ⏳ Bonus 3 — HF Spaces deploy of the chatbot (single Docker image, public URL)
 - **V3 — Stretch:**
   - GitHub Actions running `dbt build` on PR against a `ci_*` schema
-  - Evaluation harness for the chatbot (NL → expected → pass/fail JSON, ≥80%)
+  - LLM-as-judge layer on top of the programmatic eval
 
 See [PRD.md](PRD.md) for the full design and decisions log.
 
